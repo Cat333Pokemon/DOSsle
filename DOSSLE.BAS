@@ -1,8 +1,9 @@
 DECLARE SUB LetterBoard ()
-DECLARE SUB LoadWords (filename$)
+DECLARE FUNCTION LoadWords$ (filename$)
 DECLARE FUNCTION CheckWord% (guess$, j%)
 
-SCREEN 13: CLS : COLOR 15
+SCREEN 13 'remove if GPU doesn't support 320x200 graphics mode
+CLS : COLOR 15
 '14 = yellow, 2 = green, 15 = white
 PLAY "T120O4L16"
 
@@ -12,19 +13,18 @@ CONST WordLength = 5
 DIM word AS STRING
 DIM WordCount AS INTEGER
 DIM seed AS INTEGER
-DIM WordList(4999) AS STRING * WordLength  'maximum 5000 words
+DIM UseWord AS STRING * WordLength
+'DIM WordList(4999) AS STRING * WordLength  'maximum 5000 words
 DIM GuessColors(25) AS INTEGER 'guessed letters and colors
 FOR i% = 0 TO 25
     GuessColors(i%) = 15 'white
 NEXT i%
 
+'Seed as today's date
 seed = VAL(LEFT$(DATE$, 2)) * 100 + VAL(MID$(DATE$, 4, 2)) * 1200 + VAL(RIGHT$(DATE$, 2)) - 20000
 
-CALL LoadWords("words5.txt")
-UseWord = INT(RND(seed) * WordCount)
-
-'PRINT "Word selected."
-
+'Pick a word
+UseWord = LoadWords("WORDS5.TXT")
 
 FOR j% = 0 TO 5
     CALL LetterBoard
@@ -42,6 +42,8 @@ FOR j% = 0 TO 5
     END IF
 NEXT j%
 CALL LetterBoard
+
+'Print score
 LOCATE 15, 8
 COLOR 5
 SELECT CASE j%
@@ -60,30 +62,30 @@ SELECT CASE j%
     CASE ELSE
         COLOR 4
         LOCATE 15, 4
-        PRINT "The word is: "; UCASE$(WordList(UseWord))
+        PRINT "The word is: "; UseWord
 END SELECT
 COLOR 15
 END
 
 FUNCTION CheckWord% (guess$, j%)
-    SHARED WordList() AS STRING * WordLength
-    SHARED UseWord
+    'SHARED WordList() AS STRING * WordLength
+    SHARED UseWord AS STRING * WordLength
     SHARED GuessColors() AS INTEGER
     'Count letters in word, reset at each guess
     DIM Letters(25) AS INTEGER
     FOR i% = 0 TO 25
         Letters(i%) = 0
     NEXT i%
-    TheWord$ = UCASE$(WordList(UseWord))
+    'TheWord$ = UCASE$(WordList(UseWord))
     FOR i% = 1 TO WordLength
-        lo% = ASC(MID$(TheWord$, i%, 1)) - 65
+        lo% = ASC(MID$(UseWord, i%, 1)) - 65
         Letters(lo%) = Letters(lo%) + 1
     NEXT i%
     DIM WPrint(WordLength - 1) AS STRING
     DIM WColor(WordLength - 1) AS INTEGER
 
     guess$ = UCASE$(guess$)
-    wd$ = UCASE$(WordList(UseWord))
+    'wd$ = UseWord
 
     'First fill array
     FOR i% = 0 TO WordLength - 1
@@ -100,7 +102,7 @@ FUNCTION CheckWord% (guess$, j%)
     FOR i% = 1 TO WordLength
         T$ = MID$(guess$, i%, 1) 'guess letter
         lo% = ASC(T$) - 65       '^ to 0-25 for alpha position
-        IF T$ = MID$(wd$, i%, 1) THEN
+        IF T$ = MID$(UseWord, i%, 1) THEN
             WColor(i% - 1) = 2 'green
             GuessColors(lo%) = 2
             Letters(lo%) = Letters(lo%) - 1 'letter found
@@ -111,7 +113,7 @@ FUNCTION CheckWord% (guess$, j%)
     FOR i% = 1 TO WordLength
         T$ = MID$(guess$, i%, 1) 'guess letter
         lo% = ASC(T$) - 65       '^ to 0-25 for alpha position
-        IF T$ <> MID$(wd$, i%, 1) AND Letters(lo%) > 0 THEN
+        IF T$ <> MID$(UseWord, i%, 1) AND Letters(lo%) > 0 THEN
             'any remaining letters are elsewhere
             WColor(i% - 1) = 14'yellow
             IF GuessColors(lo%) <> 2 THEN 'not confirmed exact
@@ -130,7 +132,7 @@ FUNCTION CheckWord% (guess$, j%)
         
     NEXT i%
 
-    IF wd$ = guess$ THEN
+    IF UseWord = guess$ THEN
         CheckWord% = 1
     ELSE
         CheckWord% = 0
@@ -155,18 +157,34 @@ NEXT i%
 
 END SUB
 
-SUB LoadWords (filename$)
-    SHARED WordList() AS STRING * WordLength
+FUNCTION LoadWords$ (filename$)
+    'SHARED WordList() AS STRING * WordLength
     SHARED WordCount AS INTEGER
+    SHARED seed AS INTEGER
 
     WordCount = 0
     OPEN filename$ FOR INPUT AS #1
     DO UNTIL EOF(1)
         LINE INPUT #1, WordIn$
-        WordList(WordCount) = WordIn$
+        'WordList(WordCount) = WordIn$
         WordCount = WordCount + 1
     LOOP
     CLOSE #1
+
+    UseWord% = INT(RND(seed) * WordCount)
+
+    AtPos% = 0
+    OPEN filename$ FOR INPUT AS #1
+    DO UNTIL EOF(1)
+        LINE INPUT #1, WordIn$
+        'WordList(WordCount) = WordIn$
+        IF AtPos% = UseWord% THEN
+              LoadWords$ = UCASE$(WordIn$)
+        END IF
+        AtPos% = AtPos% + 1
+    LOOP
+    CLOSE #1
+
     'PRINT : PRINT "Loaded"; WordCount; "words"
-END SUB
+END FUNCTION
 
